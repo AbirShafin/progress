@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Activity, ArrowUpRight, Minus, Plus, Target, Trash2 } from "lucide-react";
+import { Activity, Minus, Plus, Target, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -19,12 +19,12 @@ const DEMO_TASKS: Task[] = [
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Momentum — Animated Progress Tracker" },
+      { title: "Progress of 141" },
       {
         name: "description",
         content: "Create animated progress bars and keep every goal moving forward.",
       },
-      { property: "og:title", content: "Momentum — Animated Progress Tracker" },
+      { property: "og:title", content: "Progress of 141" },
       {
         property: "og:description",
         content: "Create animated progress bars and keep every goal moving forward.",
@@ -101,7 +101,7 @@ function ProgressDashboard() {
             <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-glow">
               <Activity className="size-4" aria-hidden="true" />
             </span>
-            <span className="font-display text-lg font-semibold text-foreground">Momentum</span>
+            <span className="font-display text-lg font-semibold text-foreground">Progress Report</span>
           </div>
           <div className="hidden items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground sm:flex">
             <span className="size-1.5 rounded-full bg-success pulse-dot" />
@@ -112,16 +112,9 @@ function ProgressDashboard() {
 
       <main className="relative z-10 mx-auto max-w-4xl px-5 pb-24 pt-12 sm:pt-16">
         <section className="mb-10 animate-fade-in">
-          <div className="mb-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-primary">
-            <ArrowUpRight className="size-3.5" aria-hidden="true" />
-            Personal progress system
-          </div>
-          <h1 className="max-w-2xl font-display text-4xl font-semibold leading-[1.05] text-foreground sm:text-5xl">
-            Make your progress visible.
+          <h1 className="mx-auto max-w-2xl text-center font-display text-4xl font-semibold leading-[1.05] text-foreground sm:text-5xl">
+            Welcome back, Operator
           </h1>
-          <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground">
-            Add what you&apos;re working toward, then keep the momentum going one step at a time.
-          </p>
         </section>
 
         <form
