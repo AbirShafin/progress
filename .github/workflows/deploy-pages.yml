@@ -32,7 +32,7 @@ jobs:
       - name: Build static site
         run: npm run build
         env:
-          VITE_BASE_PATH: /progress/
+          VITE_BASE_PATH: ./
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
