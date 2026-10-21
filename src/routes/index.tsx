@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Activity, Minus, Plus, Target, Trash2 } from "lucide-react";
+import { LogIn, LogOut, Minus, Plus, Target, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { S141Logo } from "@/components/s141-logo";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 type Task = {
   id: string;
@@ -39,25 +42,127 @@ export const Route = createFileRoute("/")({
 function ProgressDashboard() {
   const [tasks, setTasks] = useState<Task[]>(DEMO_TASKS);
   const [taskName, setTaskName] = useState("");
-  const [isReady, setIsReady] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [dataOwner, setDataOwner] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const savedTasks = window.localStorage.getItem(STORAGE_KEY);
-      if (savedTasks) {
-        const parsed = JSON.parse(savedTasks) as unknown;
-        if (Array.isArray(parsed)) setTasks(parsed as Task[]);
+    let active = true;
+    let subscription: { unsubscribe: () => void } | undefined;
+
+    async function initializeAuth() {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (active) setUser(data.session?.user ?? null);
+
+        const authState = supabase.auth.onAuthStateChange((_event, session) => {
+          if (active) setUser(session?.user ?? null);
+        });
+        subscription = authState.data.subscription;
+      } catch (error) {
+        if (active) setAuthError(error instanceof Error ? error.message : "Unable to connect to Supabase.");
+      } finally {
+        if (active) setAuthReady(true);
       }
-    } catch {
-      // If saved data is unavailable, the starter tasks remain usable.
     }
-    setIsReady(true);
+
+    void initializeAuth();
+    return () => {
+      active = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
-    if (!isReady) return;
+    if (!authReady) return;
+    let active = true;
+
+    async function loadTasks() {
+      setDataOwner(null);
+      try {
+        if (user) {
+          const { data, error } = await supabase
+            .from("tasks")
+            .select("id, name, progress")
+            .order("created_at", { ascending: true });
+          if (error) throw error;
+
+          const cloudTasks = (data ?? []) as Task[];
+          if (cloudTasks.length > 0) {
+            if (active) setTasks(cloudTasks);
+          } else {
+            const localTasks = readLocalTasks();
+            if (active) setTasks(localTasks);
+            if (localTasks.length > 0) await saveTasks(user.id, localTasks);
+          }
+          if (active) setDataOwner(user.id);
+        } else {
+          if (active) {
+            setTasks(readLocalTasks());
+            setDataOwner("local");
+          }
+        }
+      } catch (error) {
+        if (active) {
+          setAuthError(error instanceof Error ? error.message : "Unable to load saved progress.");
+          setTasks(readLocalTasks());
+          setDataOwner("local");
+        }
+      }
+    }
+
+    void loadTasks();
+    return () => {
+      active = false;
+    };
+  }, [authReady, user]);
+
+  useEffect(() => {
+    if (!dataOwner) return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  }, [isReady, tasks]);
+    if (user && dataOwner === user.id) void saveTasks(user.id, tasks);
+  }, [dataOwner, tasks, user]);
+
+  function readLocalTasks(): Task[] {
+    try {
+      const savedTasks = window.localStorage.getItem(STORAGE_KEY);
+      if (!savedTasks) return DEMO_TASKS;
+      const parsed = JSON.parse(savedTasks) as unknown;
+      return Array.isArray(parsed) ? (parsed as Task[]) : DEMO_TASKS;
+    } catch {
+      return DEMO_TASKS;
+    }
+  }
+
+  async function saveTasks(userId: string, nextTasks: Task[]) {
+    const { error } = await supabase.from("tasks").upsert(
+      nextTasks.map((task) => ({
+        user_id: userId,
+        id: task.id,
+        name: task.name,
+        progress: task.progress,
+      })),
+      { onConflict: "user_id,id" },
+    );
+    if (error) setAuthError(error.message);
+  }
+
+  async function signInWithGitHub() {
+    setAuthError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) setAuthError(error.message);
+  }
+
+  async function signOut() {
+    setAuthError(null);
+    const { error } = await supabase.auth.signOut();
+    if (error) setAuthError(error.message);
+  }
 
   const average = useMemo(() => {
     if (tasks.length === 0) return 0;
@@ -98,17 +203,36 @@ function ProgressDashboard() {
       <header className="relative z-10 border-b border-border bg-background/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <div className="flex items-center gap-3">
-            <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-glow">
-              <Activity className="size-4" aria-hidden="true" />
+            <span className="flex size-9 items-center justify-center">
+              <S141Logo className="size-8" />
             </span>
             <span className="font-display text-lg font-semibold text-foreground">Progress Report</span>
           </div>
-          <div className="hidden items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground sm:flex">
-            <span className="size-1.5 rounded-full bg-success pulse-dot" />
-            Saved on this device
+          <div className="flex items-center gap-3">
+            {user ? (
+              <>
+                <span className="hidden max-w-40 truncate font-mono text-[11px] uppercase tracking-wider text-muted-foreground sm:inline">
+                  {user.email}
+                </span>
+                <Button type="button" variant="ghost" size="smallIcon" onClick={signOut} aria-label="Sign out" title="Sign out">
+                  <LogOut className="size-4" aria-hidden="true" />
+                </Button>
+              </>
+            ) : (
+              <Button type="button" variant="outline" size="sm" onClick={signInWithGitHub}>
+                <LogIn className="size-4" aria-hidden="true" />
+                Sign in with GitHub
+              </Button>
+            )}
           </div>
         </div>
       </header>
+
+      {authError && (
+        <div className="relative z-10 border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-center text-xs text-destructive">
+          {authError}
+        </div>
+      )}
 
       <main className="relative z-10 mx-auto max-w-4xl px-5 pb-24 pt-12 sm:pt-16">
         <section className="mb-10 animate-fade-in">
