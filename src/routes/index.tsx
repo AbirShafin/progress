@@ -196,7 +196,14 @@ function ProgressDashboard() {
     );
   }
 
-  function removeTask(id: string) {
+  async function removeTask(id: string) {
+    if (isSupabaseConfigured && user && dataOwner === user.id) {
+      const { error } = await supabase.from("tasks").delete().eq("id", id);
+      if (error) {
+        setAuthError(error.message);
+        return;
+      }
+    }
     setTasks((current) => current.filter((task) => task.id !== id));
   }
 
