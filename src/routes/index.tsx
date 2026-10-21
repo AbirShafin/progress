@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { S141Logo } from "@/components/s141-logo";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 type Task = {
@@ -52,6 +52,10 @@ function ProgressDashboard() {
     let subscription: { unsubscribe: () => void } | undefined;
 
     async function initializeAuth() {
+      if (!isSupabaseConfigured) {
+        if (active) setAuthReady(true);
+        return;
+      }
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
@@ -209,7 +213,12 @@ function ProgressDashboard() {
             <span className="font-display text-lg font-semibold text-foreground">Progress Report</span>
           </div>
           <div className="flex items-center gap-3">
-            {user ? (
+            {!isSupabaseConfigured ? (
+              <div className="hidden items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground sm:flex">
+                <span className="size-1.5 rounded-full bg-success pulse-dot" />
+                Saved on this device
+              </div>
+            ) : user ? (
               <>
                 <span className="hidden max-w-40 truncate font-mono text-[11px] uppercase tracking-wider text-muted-foreground sm:inline">
                   {user.email}
